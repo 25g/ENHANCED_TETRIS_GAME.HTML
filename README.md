@@ -1,2 +1,278 @@
-# ENHANCED_TETRIS_GAME.HTML
-ENHANCED_TETRIS_GAMES
+<!-- README INFORMATION FOR THE GAME -->
+<!-- The below game is created with the use of scripting languages such as HTML,JAVASCRIPT AND CSS -->
+<!-- ITS AN ENHANCED TETRIS GAME WHERE IF YOU SAVE IT IN .HTML YOU CAN VIEW THE GAME DIRRECTLY TO YOUR PREFERED WEB BROWSER SUCH AS GOOGLE,MOZILLA FIREFOX ETC -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ENHANCED TETRIS GAME</title>
+	
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #281c34;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        canvas {
+            border: 4px solid #61dafb;
+            background-color: #20232a;
+        }
+
+        .game-info {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            width: 320px;
+        }
+
+        .game-info div {
+            font-size: 18px;
+        }
+
+        #score, #level {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .instructions {
+            margin-top: 20px;
+            font-size: 14px;
+        }
+    </style>	
+</head>
+<body>
+    <div class="game-info">
+        <div id="score">Score: 0</div>
+        <div id="level">Level: 1</div>
+    </div>
+    <canvas id="tetris" width="320" height="640"></canvas>
+
+    <div class="instructions">
+        <p><strong>INSTRUCTIONS:</strong> PLEASE USE THE ARROW KEYS TO MOVE AND ROTATE THE BLOCKS.</p>
+        <p>LEFT,RIGHT TO MOVE, UP TO ROTATE, DOWN TO ACCELERATE.</p>
+    </div>
+    <script>
+        const canvas = document.getElementById('tetris');
+        const context = canvas.getContext('2d');
+        const scale = 20;
+
+        // Shapes and colors for different tetrominoes
+        const shapes = {
+            I: [[1, 2, 1, 2]],
+            O: [
+                [1, 1],
+                [1, 1],
+            ],
+            T: [
+                [3, 1, 1],
+                [1, 1, 1],
+            ],
+            S: [
+                [3, 1, 1],
+                [1, 1, 0],
+            ],
+            Z: [
+                [1, 1, 0],
+                [0, 1, 1],
+            ],
+            L: [
+                [1, 0, 0],
+                [1, 1, 1],
+            ],
+            J: [
+                [4, 2, 1],
+                [1, 2, 3],
+            ],
+        };
+
+        const colors = {
+            I: 'cyan',
+            O: 'yellow',
+            T: 'purple',
+            S: 'green',
+            Z: 'red',
+            L: 'orange',
+            J: 'blue',
+        };
+
+        const arenaWidth = canvas.width / scale;
+        const arenaHeight = canvas.height / scale;
+
+        function createMatrix(width, height) {
+            const matrix = [];
+            while (height--) {
+                matrix.push(new Array(width).fill(0));
+            }
+            return matrix;
+        }
+
+        const arena = createMatrix(arenaWidth, arenaHeight);
+
+        function drawMatrix(matrix, offset) {
+            matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        context.fillStyle = value;
+                        context.fillRect((x + offset.x) * scale, (y + offset.y) * scale, scale, scale);
+                    }
+                });
+            });
+        }
+
+        function draw() {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            drawMatrix(arena, {x: 0, y: 0});
+            drawMatrix(player.matrix, player.pos);
+        }
+
+        function merge(arena, player) {
+            player.matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        arena[y + player.pos.y][x + player.pos.x] = value;
+                    }
+                });
+            });
+        }
+
+        function rotate(matrix) {
+            return matrix[0].map((_, i) => matrix.map(row => row[i])).reverse();
+        }
+
+        function playerDrop() {
+            player.pos.y++;
+            if (collide(arena, player)) {
+                player.pos.y--;
+                merge(arena, player);
+                resetPlayer();
+                arenaSweep();
+                updateScore();
+            }
+            dropCounter = 0;
+        }
+
+        function collide(arena, player) {
+            const [m, o] = [player.matrix, player.pos];
+            for (let y = 0; y < m.length; ++y) {
+                for (let x = 0; x < m[y].length; ++x) {
+                    if (m[y][x] !== 0 && (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function resetPlayer() {
+            const pieces = 'IOTSZLJ';
+            player.matrix = createPiece(pieces[(pieces.length * Math.random()) | 0]);
+            player.pos.y = 0;
+            player.pos.x = ((arenaWidth / 2) | 0) - ((player.matrix[0].length / 2) | 0);
+            if (collide(arena, player)) {
+                arena.forEach(row => row.fill(0));
+                player.score = 0;
+                player.level = 1;
+                updateScore();
+            }
+        }
+
+        function createPiece(type) {
+            return shapes[type].map(row => row.map(value => (value ? colors[type] : 0)));
+        }
+
+        function arenaSweep() {
+            let rowCount = 1;
+            outer: for (let y = arena.length - 1; y > 0; --y) {
+                for (let x = 0; x < arena[y].length; ++x) {
+                    if (arena[y][x] === 0) {
+                        continue outer;
+                    }
+                }
+                const row = arena.splice(y, 1)[0].fill(0);
+                arena.unshift(row);
+                player.score += rowCount * 10;
+                rowCount *= 2;
+            }
+        }
+
+        function updateScore() {
+            document.getElementById('score').innerText = 'Score: ' + player.score;
+            document.getElementById('level').innerText = 'Level: ' + player.level;
+        }
+
+        let dropCounter = 0;
+        let dropInterval = 1000;
+
+        let lastTime = 0;
+        function update(time = 0) {
+            const deltaTime = time - lastTime;
+            lastTime = time;
+
+            dropCounter += deltaTime;
+            if (dropCounter > dropInterval) {
+                playerDrop();
+            }
+
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        const player = {
+            pos: {x: 0, y: 0},
+            matrix: null,
+            score: 0,
+            level: 1,
+        };
+
+        function levelUp() {
+            if (player.score >= player.level * 100) {
+                player.level++;
+                dropInterval *= 0.9; // Increase difficulty
+            }
+        }
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'ArrowLeft') {
+                player.pos.x--;
+                if (collide(arena, player)) {
+                    player.pos.x++;
+                }
+            } else if (event.key === 'ArrowRight') {
+                player.pos.x++;
+                if (collide(arena, player)) {
+                    player.pos.x--;
+                }
+            } else if (event.key === 'ArrowDown') {
+                playerDrop();
+            } else if (event.key === 'ArrowUp') {
+                const rotatedMatrix = rotate(player.matrix);
+                const offset = player.pos.x;
+                let shift = 1;
+                while (collide(arena, player)) {
+                    player.pos.x += shift;
+                    shift = -(shift + (shift > 0 ? 1 : -1));
+                    if (shift > player.matrix[0].length) {
+                        rotate(player.matrix);
+                        player.pos.x = offset;
+                        return;
+                    }
+                }
+            }
+            levelUp();
+        });
+
+        resetPlayer();
+        updateScore();
+        update();
+    </script>
+</body>
+</html>
+<!-- end of comment -->
